@@ -9,8 +9,8 @@ val kmongoVersion = "4.5.0"
 
 plugins {
     kotlin("multiplatform") version "1.7.20-Beta"
-    application //to run JVM part
     kotlin("plugin.serialization") version "1.7.20-Beta"
+    distribution
 }
 
 group = "org.example"
@@ -71,9 +71,6 @@ kotlin {
     }
 }
 
-application {
-    mainClass.set("ServerKt")
-}
 
 // include JS artifacts in any JAR we generate
 tasks.getByName<Jar>("jvmJar") {
@@ -97,17 +94,34 @@ tasks {
     }
 }
 
+
 distributions {
     main {
+        distributionBaseName.set("shoppinglist")
         contents {
-            from("$buildDir/libs") {
-                rename("${rootProject.name}-jvm", rootProject.name)
-                into("lib")
+            into("") {
+                val jvmJar by tasks.getting
+                from(jvmJar)
+            }
+            into("lib/") {
+                val main by kotlin.jvm().compilations.getting
+                from(main.runtimeDependencyFiles)
             }
         }
     }
 }
 
+tasks.withType<Jar> {
+    doFirst {
+        manifest {
+            val main by kotlin.jvm().compilations.getting
+            attributes(
+                "Main-Class" to "ServerKt",
+                "Class-Path" to main.runtimeDependencyFiles.files.joinToString(" ") { "lib/" + it.name }
+            )
+        }
+    }
+}
 // Alias "installDist" as "stage" (for cloud providers)
 tasks.create("stage") {
     dependsOn(tasks.getByName("installDist"))
